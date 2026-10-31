@@ -1,0 +1,34 @@
+name: Show your Flashduck build
+description: Share photos, a video, a 3D remix, new actions or tuning results.
+title: "[Showcase] "
+labels: ["showcase"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for building one. Real photos and real parameters help the next maker.
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware / board
+      description: Which board and camera did you use?
+      placeholder: "e.g. Otto CAM board, OV2640, 6x MG90"
+    validations:
+      required: true
+  - type: textarea
+    id: build
+    attributes:
+      label: What did you build or change?
+      description: Shell remix, gait parameters, new actions, eye states, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Photos / video links
+      description: Drag images here or paste a Bilibili / YouTube / MakerWorld link.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes for other makers
+      description: Print settings, screws, cable routing, gotchas, parameters.

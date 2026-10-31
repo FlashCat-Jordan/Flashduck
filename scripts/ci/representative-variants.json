@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "selection_date": "2026-10-31",
+  "selection_basis": "Only the Flashduck board project is built.",
+  "variants": [
+    {
+      "board": "flashduck",
+      "name": "flashduck",
+      "reason": "Flashduck: single-eye display, LAN gait tuning and duck action set"
+    }
+  ]
+}

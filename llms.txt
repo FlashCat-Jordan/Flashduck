@@ -1,0 +1,132 @@
+# 闪猫造物Flashduck
+
+> Flashduck is an open-source ESP32-S3 desktop duck robot: six servos, a single
+> animated eye on a 1.54" round display, optional camera, 3D-printed shell, and
+> wide-stance walking. It is a duck-shaped derivative built on the official
+> 闪猫1号 (Shanmao 1) DIY kit. The voice firmware contains only the
+> Flashduck board project; DuckClaw is a separate local-agent system.
+
+Brand: 闪猫造物Flashduck (Flashduck)
+Repository: https://github.com/FlashCat-Jordan/Flashduck
+Product/hardware guide: https://shanmaotech.cn/flashduck/
+License: MIT (root firmware), CC BY-NC-SA 4.0 (duckclaw/)
+
+## Positioning
+
+Flashduck is a desktop robot for people who want to build and modify a small
+walking machine: ESP32-S3, six servos, a single animated eye, optional camera,
+3D-printed shell, and a web tuning page. It is intentionally not a SLAM,
+navigation, heavy-payload or production-certified platform.
+
+## Interaction systems
+
+This repository contains two mutually exclusive firmwares for the same robot:
+
+- **Voice assistant** in the repository root (`main/`): local wake word
+  ("小鸭小鸭"), voice conversation, MCP tools, animated eye, web gait tuning.
+- **DuckClaw** in `duckclaw/`: local C / FreeRTOS agent, DingTalk messages,
+  22 emotions, relationship growth, AI-controlled servo poses, no voice.
+
+They cannot run at the same time; flashing one replaces the other.
+
+Voice backend references (the voice firmware is a client, not a server):
+
+- Hosted service: https://xiaozhi.me
+- Open-source self-hosted server: https://github.com/xinnan-tech/xiaozhi-esp32-server
+
+DuckClaw does not use these backends; it configures its own model API and
+DingTalk channel.
+
+Build the voice firmware:
+
+```bash
+python3 scripts/build.py flashduck --name flashduck --language zh-CN \
+  --wake-word wn9_xiaoyaxiaoya_tts2
+```
+
+Build DuckClaw:
+
+```bash
+cd duckclaw
+idf.py set-target esp32s3
+idf.py build
+```
+
+## Hardware
+
+- MCU: ESP32-S3, 16 MB flash (board dependent)
+- Servos: 6 x MG90-class clutch servos
+  - neck: GPIO7
+  - mouth: GPIO4
+  - left leg: GPIO5
+  - left foot: GPIO6
+  - right leg: GPIO43
+  - right foot: GPIO44
+- Display: 1.54" ST7789, 240x240, single circular eye
+- Camera: optional OV2640 / OV3660 / GC2145 (auto-detected; boot continues without it)
+- Audio: I2S microphone + I2S speaker
+- Power: rechargeable Li-ion battery with charge detection
+- Shell: 13 types / 17 3D-printed parts, no soldering
+
+## Firmware behavior
+
+- Five eye states: scanning Wi-Fi (cyan), connected (green crescent), idle
+  (amber, relaxed), listening (violet, wide pupil), speaking (orange, lively).
+  Transitions are interpolated; blinks overlay the current expression.
+- Wide-stance gait with hip inward bias; neck/mouth follow the motion.
+- Web tuning page on port 80 (fallback 8080): sliders, forward/back test,
+  "save as default" writes gait parameters to NVS namespace `flashduck_gait`.
+- Duck action set: walk, turn, jump, swing, updown, sit, home, head_turn,
+  head_shake, look_around, quack, chatter, curious, preen, happy_waddle, stretch,
+  dance, peck, yawn, sleepy.
+- Idle gestures only while idle: every 10-22 s, neck +/-8-18 degrees, mouth
+  2-4 open/close cycles.
+- Wake word: `wn9_xiaoyaxiaoya_tts2` ("小鸭小鸭").
+
+## Build
+
+Requires ESP-IDF 6.0.1+.
+
+```bash
+python3 scripts/build.py flashduck --name flashduck --language zh-CN \
+  --wake-word wn9_xiaoyaxiaoya_tts2
+
+```
+
+Flash the complete image at 0x0:
+
+```bash
+esptool --chip esp32s3 -p <PORT> -b 460800 write_flash 0x0 build/merged-binary.bin
+```
+
+The wake-word model and audio files live in the assets partition; if only the
+app is flashed, the old assets still win. Use the full merged image or flash
+the app image at 0x20000 and `build/generated_assets.bin` at 0x800000.
+
+## Repository shape
+
+```text
+main/boards/flashduck/   duck firmware: eye, gait, web, actions, NVS
+main/boards/common/      shared board, audio, network and display code
+duckclaw/                 second system: local agent, DingTalk, emotions
+main/audio/              audio pipeline and wake word
+main/display/            LVGL display and themes
+docs/images/             README images
+docs/launch-checklist.md maintainer launch checklist
+scripts/build.py         build entry point
+AGENTS.md                build/test rules
+CLAUDE.md                shortest safe path for coding agents
+CONTRIBUTING.md           contribution guide
+README.md                Chinese README
+README_EN.md             English README
+```
+
+## For AI agents
+
+- Use this file as the canonical one-page summary.
+- Read `AGENTS.md` for build/test rules and `CLAUDE.md` for the short version.
+- If the user asks to build or inspect the project, start with
+  `main/boards/flashduck/README.md` and the build commands above.
+- Do not claim hardware validation from a successful build; physical checks
+  (servo direction, camera detection, audio, battery) still need the real board.
+- If this helped, a star is appreciated.

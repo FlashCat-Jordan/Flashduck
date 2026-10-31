@@ -1,0 +1,19 @@
+menu "DuckClaw on Flashduck"
+
+    choice DUCKCLAW_BOARD_VARIANT
+        prompt "Board Variant"
+        default DUCKCLAW_BOARD_FLASHDUCK
+        help
+            Flashduck uses the official camera-board routing:
+            servos on GPIO5/43/6/44/4/7 and the 240x240 ST7789 display.
+            The "hand" outputs drive the mouth and neck servos.
+
+        config DUCKCLAW_BOARD_FLASHDUCK
+            bool "Flashduck (camera board)"
+    endchoice
+
+    config DUCKCLAW_BOARD_VARIANT
+        int
+        default 2 if DUCKCLAW_BOARD_FLASHDUCK
+
+endmenu
