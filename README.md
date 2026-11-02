@@ -127,6 +127,22 @@ Flashduck 把一台小型 AI 硬件常用的能力，集中在了同一副身体
 
 ---
 
+## 视频展示
+
+<p align="center">
+  <a href="firmware/voice/docs/videos/flashduck-demo.mp4">
+    <img src="firmware/voice/docs/images/flashduck-video.gif" alt="Flashduck 万圣节恶魔鸭演示" width="70%">
+  </a>
+</p>
+
+<p align="center">
+  <sub>万圣节限定“恶魔鸭”外壳 · <a href="firmware/voice/docs/videos/flashduck-demo.mp4"><b>观看完整视频（30 秒，带声音）</b></a></sub>
+</p>
+
+> 视频里是万圣节限定外壳改造。默认套件打印标准小鸭外壳；不需要额外电子件，换一套外壳就能得到不同形态。
+
+---
+
 ## 两套交互系统
 
 同一副硬件，可以刷两套完全不同的交互系统。**二选一，不能同时运行**；刷一套会覆盖另一套。

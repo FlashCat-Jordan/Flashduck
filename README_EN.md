@@ -127,6 +127,22 @@ Take one layer — voice, vision, motion, display or agent — or recombine all 
 
 ---
 
+## Video showcase
+
+<p align="center">
+  <a href="firmware/voice/docs/videos/flashduck-demo.mp4">
+    <img src="firmware/voice/docs/images/flashduck-video.gif" alt="Flashduck Halloween demon duck demo" width="70%">
+  </a>
+</p>
+
+<p align="center">
+  <sub>Halloween “demon duck” shell · <a href="firmware/voice/docs/videos/flashduck-demo.mp4"><b>Watch the full 30-second video with sound</b></a></sub>
+</p>
+
+> The video shows the Halloween shell variant. The default kit prints the standard duck shell; no extra electronics are needed, and a different shell gives it a different character.
+
+---
+
 ## Two interaction systems
 
 One robot body, two completely different interaction systems. **Choose one — they cannot run at the same time.** Flashing one replaces the other.
