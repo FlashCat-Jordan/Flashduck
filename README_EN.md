@@ -139,8 +139,6 @@ Take one layer — voice, vision, motion, display or agent — or recombine all 
   <sub>Halloween “demon duck” shell · <a href="firmware/voice/docs/videos/flashduck-demo.mp4"><b>Watch the full 30-second video with sound</b></a></sub>
 </p>
 
-> The video shows the Halloween shell variant. The default kit prints the standard duck shell; no extra electronics are needed, and a different shell gives it a different character.
-
 ---
 
 ## Two interaction systems
