@@ -10,6 +10,12 @@ Repository: https://github.com/FlashCat-Jordan/Flashduck
 Product/hardware guide: https://shanmaotech.cn/flashduck/
 License: MIT (voice firmware), CC BY-NC-SA 4.0 (DuckClaw)
 
+Positioning: an AI-native desktop duck, not a preset-action player. DuckClaw's
+`self.otto.pose` (Servo Sequences Lite) exposes the six joint angles to the
+model, so it can compose and chain poses at runtime instead of requiring a new
+C++ action function for every motion. The base actions remain as reusable
+vocabulary.
+
 ## Repository layout
 
 ```text

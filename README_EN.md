@@ -69,6 +69,34 @@ It is more than an animation loop: the eye changes with what it is doing, six se
 
 Flashduck is a duck-shaped derivative of the official Shanmao 1 DIY kit: print the duck shell, and the same six-servo hardware becomes a duck.
 
+### It is not a preset-animation player
+
+Flashduck is not a “press a button, play an animation” toy. It is a machine duck whose body is driven by AI decisions.
+
+Most desktop robots hard-code their motions: a developer defines “wave = angle A → B → C”, and the user can only trigger actions that already exist.
+
+Flashduck takes a different path: **let the AI control the body, not just pick from a list of animations.**
+
+DuckClaw's **Servo Sequences** ([`self.otto.pose`](firmware/duckclaw/spiffs_data/config/TOOLS.md)) exposes the six joint angles directly to the model. The AI can:
+
+- compose a pose from the current conversation;
+- chain several poses into a motion sequence that was never written as a C++ action;
+- improvise a physical reaction for a new emotion, scene or joke instead of falling back to a fixed action list;
+- treat the legs, feet, neck and mouth as “pixels” and build its own movement.
+
+This is what we mean by **making AI thoughts physical**: the model is not limited to emitting text; it can decide how the body moves.
+
+The base actions are still there: walk, turn, jump, shake the head, open the mouth. They are the vocabulary; Servo Sequences are the grammar. The AI can speak with the vocabulary, or invent a new sentence on the spot.
+
+| | Typical preset motions | Flashduck |
+|---|---|---|
+| **New motion** | Edit code, rebuild and flash | AI composes joint angles at runtime |
+| **Granularity** | One function per action | Six joints, composable and chainable |
+| **Source of expression** | A fixed action list | Conversation, emotion and context; the voice system can also use vision |
+| **How it grows** | The developer defines everything first | Model + MCP tools + Skill keep extending it |
+
+In DuckClaw mode, the model can decide what to do next without a developer turning every motion into a function first. That is the main difference from a typical desktop robot: **its body is not a pre-recorded animation; it is an output channel the AI can write to in real time.**
+
 ### What it can do
 
 - **Voice interaction**: say “小鸭小鸭” to wake it, then chat, ask questions or give it a job;
@@ -102,6 +130,29 @@ The two systems are mutually exclusive; flash one and play.
 - **Extensible on-device agent**: DuckClaw runs entirely inside the robot, with its own model, external tools, DingTalk/social connectivity and direct body control;
 - **Hardware can change**: based on the official six-servo kit, with printable shells and modifiable structure;
 - **Software can change**: the voice firmware is MIT, DuckClaw is CC BY-NC-SA; eyes, actions, tools and agents can keep growing.
+
+### A complete AI-hardware base
+
+From voice and vision to display, expression, motion and tool calling, it covers the components commonly found in AI hardware products.
+
+Flashduck packs the capabilities of a small AI hardware product into one body:
+
+- **Voice**: microphone + speaker for wake word, conversation and spoken feedback;
+- **Vision**: optional camera with OV2640 / OV3660 / GC2145 auto-detection;
+- **Display and expression**: a 1.54-inch screen and a single-eye expression system;
+- **Motion**: six servos driving the legs, feet, neck and mouth;
+- **Compute and connectivity**: ESP32-S3, Wi-Fi/Bluetooth and a rechargeable battery;
+- **Agent and tools**: an MCP toolchain and an on-device agent that can use your own model and services.
+
+It is more than “a duck that walks”: it is an **AI-hardware development base**. The same core capabilities can be moved to:
+
+- biped robots and quadruped robot dogs;
+- desktop companions and educational robots;
+- AI recording cards and desktop voice assistants;
+- camera-equipped desktop agents with expressive faces;
+- any small AI device that needs voice + vision + display + motion + tool calling.
+
+Take one layer — voice, vision, motion, display or agent — or recombine all of them into your own product. It is not a closed product but an AI-hardware skeleton that can keep growing: new forms, sensors and agents can all grow from this base. Both the hardware and the code leave room to change.
 
 ---
 
@@ -545,9 +596,25 @@ The skill includes:
 - DuckClaw recipes: on-device agent, actions, tools, prompts, DingTalk and model configuration;
 - troubleshooting: IDF versions, non-ASCII paths, flash offsets and asset partitions.
 
-You can tell an agent:
+### Give the repository to an AI agent
 
-> Read `skills/flashduck-dev/SKILL.md`, check my environment, then add a new duck action.
+You do not need to be an embedded engineer first. Give a coding agent the repository link and one sentence of intent; it can start from [`skills/flashduck-dev/SKILL.md`](skills/flashduck-dev/SKILL.md):
+
+1. read the repository layout, hardware limits and the smallest owning layer;
+2. check/install ESP-IDF, Python, serial port and the rest of the environment;
+3. edit, build, flash;
+4. keep iterating from the serial log and the screen until the target motion works.
+
+You can simply say:
+
+- “Read `skills/flashduck-dev/SKILL.md`, check my environment, then add a ‘tilt head and think’ action.”
+- “Change the wake word to ‘你好小鸭’, keeping the current eyes and gait.”
+- “Add a ‘blink when someone appears’ expression; skip it automatically if no camera is installed.”
+- “Slow down the default gait so it is more stable on a desk.”
+- “Connect a weather MCP tool and use motions to express rain or sunshine.”
+- “Make the eye color and blink rhythm a bit more lively.”
+
+The agent finds files, edits, builds and flashes; you describe the intent and confirm that the motion is safe on the real robot. For larger changes, still review the diff and keep a rollback branch.
 
 ## For AI agents
 
