@@ -1,0 +1,102 @@
+# 闪猫造物Flashduck
+
+> Flashduck is an open-source ESP32-S3 desktop duck robot: six servos, a single
+> animated eye on a 1.54" display, optional camera, 3D-printed shell and
+> wide-stance walking. The voice firmware is a duck-shaped derivative built on
+> the official Shanmao 1 DIY kit.
+
+Brand: 闪猫造物Flashduck (Flashduck)
+Repository: https://github.com/FlashCat-Jordan/Flashduck
+Product/hardware guide: https://shanmaotech.cn/flashduck/
+License: MIT (voice firmware), CC BY-NC-SA 4.0 (DuckClaw)
+
+## Repository layout
+
+```text
+firmware/voice/       voice assistant: wake word, eye, actions, gait, MCP, camera
+firmware/duckclaw/    DuckClaw on-device agent: tools, DingTalk/social, body control, emotions
+skills/flashduck-dev/ coding-agent skill: environment, checks, recipes, scaffolding
+docs/                 architecture.md, coding-agent.md
+```
+
+Flashduck has two independent interaction systems; the user chooses one. Only one runs at a time (flashing one replaces the other), but both share the same six-servo hardware.
+
+## Interaction systems
+
+- **Voice assistant** (`firmware/voice/`): local wake word “小鸭小鸭”, voice
+  conversation, MCP tools, animated eye, web gait tuning, optional camera.
+- **DuckClaw** (`firmware/duckclaw/`): an on-device agent whose loop, memory,
+  tool dispatch and body control run inside the robot. It can call external
+  tools, connect to social software such as DingTalk, and directly drive the
+  six servos. It does not speak and does not currently read camera images.
+
+## Coding agent skill
+
+Primary entry: `skills/flashduck-dev/SKILL.md`
+
+The skill contains:
+- `scripts/check-env.sh` — Python, Git, CMake, Ninja, ESP-IDF 6.0.1+, esptool,
+  serial ports, non-ASCII path warning;
+- `scripts/setup-env.sh` — install missing host tools / ESP-IDF on macOS/Linux;
+- `scripts/build-voice.sh`, `scripts/build-duckclaw.sh`, `scripts/flash.sh`;
+- references for hardware, voice firmware, DuckClaw, recipes and environment.
+
+Agent read order: `README.md` -> `docs/architecture.md` ->
+`docs/coding-agent.md` -> `skills/flashduck-dev/SKILL.md` -> owning source file.
+
+## Build commands
+
+Voice:
+
+```bash
+cd firmware/voice
+python3 scripts/build.py flashduck --name flashduck --language zh-CN \
+  --wake-word wn9_xiaoyaxiaoya_tts2
+```
+
+Outputs: `build/merged-binary.bin` (0x0), app at `0x20000`, assets at `0x800000`.
+
+DuckClaw:
+
+```bash
+cd firmware/duckclaw
+idf.py set-target esp32s3
+idf.py build
+idf.py merge-bin
+```
+
+Output: `build/merged-binary.bin` (0x0). App partition is tight (~3% free).
+
+## Hardware
+
+- MCU: ESP32-S3, 16 MB flash board
+- Servos: 6 × MG90-class clutch servos
+- Display: ST7789 240×240
+- Camera: optional OV2640 / OV3660 / GC2145
+- Servo map (Flashduck):
+  - left leg GPIO5, right leg GPIO43
+  - left foot GPIO6, right foot GPIO44
+  - mouth GPIO4 (**45–60° only**)
+  - neck GPIO7 (**45–180°**, 135° forward)
+- Voice firmware supports camera photo explanation through the backend.
+- DuckClaw currently does not read camera images.
+- A successful build is not hardware validation.
+
+## Voice backend references
+
+The voice firmware is a device-side client; it needs a backend:
+
+- Hosted service: https://xiaozhi.me
+- Open-source self-hosted server: https://github.com/xinnan-tech/xiaozhi-esp32-server
+
+DuckClaw is a separate on-device agent: its agent runtime, memory, tool dispatch
+and body control are inside the robot. It can use its own model service, call
+external tools, and connect to social software such as DingTalk.
+
+## Safety and scope
+
+- Never command mouth >60° or neck outside 45–180°.
+- Do not change board pins silently; add a board variant.
+- Do not mix MIT voice code and CC BY-NC-SA DuckClaw code.
+- Do not claim hardware validation from a successful compile.
+- On macOS, build from an ASCII path; ESP-IDF 6.0.1 can fail on Chinese paths.
