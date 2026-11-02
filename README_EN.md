@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <b>Open hardware + open software: a six-servo duck with one animated eye, wide-stance walking, a printable shell, a BOM and two independent firmware packages.</b>
+  <b>It walks, watches, speaks with its eyes — and lets AI control every joint.</b>
 </p>
 
 <p align="center">
@@ -41,23 +41,22 @@
 
 ## Project overview
 
-Flashduck is a desktop duck robot that walks, watches and speaks with its eyes — and a desktop-robot project that open-sources **both hardware and software**.
+Flashduck is a small desktop duck robot. It walks, watches, expresses itself with a single eye, and listens when you talk to it.
 
-It open-sources more than code:
+Six servos move its legs, feet, neck and mouth. One animated eye shows idle, listening, speaking and network states. An optional camera lets it take a photo and look at the scene. With a voice backend or agent connected, it can follow instructions, call tools and turn replies into motion and expressions.
 
-- **Hardware**: the 3D-printable shell design, a complete bill of materials (BOM), assembly notes and wiring reference;
-- **Software**: two independent firmware packages that share the same six-servo body. Flash one and use that one.
-
-The two firmware packages are:
-
-- **Voice assistant** (`firmware/voice/`): say “小鸭小鸭” to wake it; it listens, answers with its eye and body, and can use MCP tools. It needs a voice backend.
-- **DuckClaw** (`firmware/duckclaw/`): talk to it through DingTalk and other IM apps — no wake word and no voice, which makes it suitable for quiet spaces. The agent runtime, memory and tool dispatch run inside the robot without depending on the xiaozhi cloud service; the model service is configurable. It can call tools and directly drive the six servos for motion and emotion.
-
-They are independent firmware packages. **Only one runs at a time; flashing one replaces the other.** See [Hardware](#hardware) for the BOM and hardware details.
+Keep it as a desk companion, or treat it as a buildable, hackable robot.
 
 Flashduck is a duck-shaped derivative of the official Shanmao 1 DIY kit: print the duck shell, and the same six-servo hardware becomes a duck.
 
-It is more than an animation loop: the eye changes with what it is doing, six servos move its body, and an optional camera lets it look at the world. Keep it as a desk companion, or treat it as a buildable, hackable robot.
+### What it can do
+
+- **Voice interaction**: say “小鸭小鸭” to wake it, then chat, ask questions or give it a job;
+- **Visual perception**: an optional camera can take a photo and let the AI look at the scene; the exact ability depends on your voice backend;
+- **Motion interaction**: six servos drive the legs, feet, neck and mouth; it can walk, turn, jump, shake its head, open its mouth and perform duck actions;
+- **Eye expressions**: one eye changes expression for scanning, connecting, idle, listening and speaking — not a looped GIF;
+- **On-device agent**: DuckClaw runs entirely inside the robot, talks to you through DingTalk, calls external tools, and turns replies and emotions into physical movement;
+- **Secondary development**: eyes, actions, gait, shell, MCP tools and the on-device agent are all editable.
 
 ### It is not a preset-animation player
 
@@ -86,15 +85,6 @@ The base actions are still there: walk, turn, jump, shake the head, open the mou
 | **How it grows** | The developer defines everything first | Model + MCP tools + Skill keep extending it |
 
 In DuckClaw mode, the model can decide what to do next without a developer turning every motion into a function first. That is the main difference from a typical desktop robot: **its body is not a pre-recorded animation; it is an output channel the AI can write to in real time.**
-
-### What it can do
-
-- **Voice interaction**: say “小鸭小鸭” to wake it, then chat, ask questions or give it a job;
-- **Visual perception**: an optional camera can take a photo and let the AI look at the scene; the exact ability depends on your voice backend;
-- **Motion interaction**: six servos drive the legs, feet, neck and mouth; it can walk, turn, jump, shake its head, open its mouth and perform duck actions;
-- **Eye expressions**: one eye changes expression for scanning, connecting, idle, listening and speaking — not a looped GIF;
-- **On-device agent**: DuckClaw runs entirely inside the robot, talks to you through DingTalk, calls external tools, and turns replies and emotions into physical movement;
-- **Secondary development**: eyes, actions, gait, shell, MCP tools and the on-device agent are all editable.
 
 ### How you interact
 
