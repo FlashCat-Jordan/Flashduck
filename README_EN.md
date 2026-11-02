@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <b>An open-source six-servo duck for desktop-robot developers: one animated eye, wide-stance walking, web gait tuning and a printable shell.</b>
+  <b>Open hardware + open software: a six-servo duck with one animated eye, wide-stance walking, a printable shell, a BOM and two independent firmware packages.</b>
 </p>
 
 <p align="center">
@@ -39,35 +39,25 @@
 
 ---
 
-## How to read this repository
-
-The repository has three layers. Pick the layer you need and you will not get lost:
-
-| Layer | Location | What is there |
-|---|---|---|
-| **Product/project** | `README.md` | What it is, how to play, how to build, which system to choose |
-| **Firmware/code** | `firmware/voice/`, `firmware/duckclaw/` | Code, build scripts and board configs for two independent interaction systems |
-| **Secondary development** | `skills/flashduck-dev/` | A skill for coding agents and beginners: checks, recipes and environment setup |
-| **Cross-project docs** | `docs/architecture.md`, `docs/coding-agent.md` | Project logic, code logic and agent workflow |
-
-**Two independent interaction systems; the user chooses one.**
-
-Flashduck shares one six-servo body, but ships two completely separate interaction experiences:
-
-- **Voice interaction** (`firmware/voice/`): say “小鸭小鸭”, talk to it, and let it answer with its eye and body — it can also use tools to get things done;
-- **DuckClaw on-device agent** (`firmware/duckclaw/`): an agent that runs entirely inside the robot; it can call external tools, connect to social software such as DingTalk, and directly drive the six servos for motion and expression.
-
-They are not two programs that run together. **Only one runs at a time — flash one and play that one.**
-
----
-
 ## Project overview
 
-Flashduck is a small desktop duck robot. It walks, watches, expresses itself with a single eye, and listens when you talk to it.
+Flashduck is a desktop duck robot that walks, watches and speaks with its eyes — and a desktop-robot project that open-sources **both hardware and software**.
 
-It is more than an animation loop: the eye changes with what it is doing, six servos move its body, and an optional camera lets it look at the world. Keep it as a desk companion, or treat it as a buildable, hackable robot.
+It open-sources more than code:
+
+- **Hardware**: the 3D-printable shell design, a complete bill of materials (BOM), assembly notes and wiring reference;
+- **Software**: two independent firmware packages that share the same six-servo body. Flash one and use that one.
+
+The two firmware packages are:
+
+- **Voice assistant** (`firmware/voice/`): say “小鸭小鸭” to wake it; it listens, answers with its eye and body, and can use MCP tools. It needs a voice backend.
+- **DuckClaw** (`firmware/duckclaw/`): talk to it through DingTalk and other IM apps — no wake word and no voice, which makes it suitable for quiet spaces. The agent runtime, memory and tool dispatch run inside the robot without depending on the xiaozhi cloud service; the model service is configurable. It can call tools and directly drive the six servos for motion and emotion.
+
+They are independent firmware packages. **Only one runs at a time; flashing one replaces the other.** See [Hardware](#hardware) for the BOM and hardware details.
 
 Flashduck is a duck-shaped derivative of the official Shanmao 1 DIY kit: print the duck shell, and the same six-servo hardware becomes a duck.
+
+It is more than an animation loop: the eye changes with what it is doing, six servos move its body, and an optional camera lets it look at the world. Keep it as a desk companion, or treat it as a buildable, hackable robot.
 
 ### It is not a preset-animation player
 
