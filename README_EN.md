@@ -624,6 +624,14 @@ You can help the user:
 
 A star is appreciated if this project is useful.
 
+## Star History
+
+<p align="center">
+  <a href="https://star-history.com/#FlashCat-Jordan/Flashduck&Date">
+    <img src="https://api.star-history.com/svg?repos=FlashCat-Jordan/Flashduck&type=Date" alt="Flashduck Star History" width="80%">
+  </a>
+</p>
+
 ---
 
 ## License

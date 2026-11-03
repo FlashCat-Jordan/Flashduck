@@ -633,6 +633,14 @@ Agent 负责找文件、改代码、跑构建；你负责说清楚想要什么�
   <sub>如果它帮到了你，欢迎点一个 Star。</sub>
 </p>
 
+## Star History
+
+<p align="center">
+  <a href="https://star-history.com/#FlashCat-Jordan/Flashduck&Date">
+    <img src="https://api.star-history.com/svg?repos=FlashCat-Jordan/Flashduck&type=Date" alt="Flashduck Star History" width="80%">
+  </a>
+</p>
+
 ---
 
 ## License
