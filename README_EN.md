@@ -41,7 +41,9 @@
 
 ## Project overview
 
-Flashduck is a desktop robot duck fully controlled by AI. It reads the room through its camera and responds to your mood with quacks and voice. A single animated eye follows its state and interacts with you through expressions. Six degrees of freedom drive its neck, mouth, legs and feet for lively poses and movements. Because the AI controls all six joints directly, it can produce surprising and efficient motions and postures.
+Flashduck is a desktop robot duck fully controlled by AI. It reads the room through its camera and understands what you say — but it only ever quacks back: one duck sound plus a small head-and-mouth gesture. No human voice, by design. A single animated eye follows its state and interacts with you through expressions. Six degrees of freedom drive its neck, mouth, legs and feet for lively poses and movements. Because the AI controls all six joints directly, it can produce surprising and efficient motions and postures.
+
+> Assembled yours already? See the [user guide](docs/使用说明.md) (Chinese): networking, activation, wake word, eye states, what it can do, and troubleshooting.
 
 Shanmao Tech built it from the complete electronics of the Shanmao 1 (Otto AI edition), with a new shell design and a new firmware stack. Anyone can build one from the DIY kit without buying extra electronic parts; with the guide, even a beginner can assemble it in about 30 minutes.
 
@@ -79,7 +81,7 @@ In DuckClaw mode, the model can decide what to do next without a developer turni
 
 ### How you interact
 
-**Voice assistant**: you call it → it looks and listens → it answers → it responds with its eye and body → it calls tools when needed.
+**Voice assistant**: you call it → it listens → it answers with a quack, a mouth flap and a head turn → it calls tools when needed.
 
 **DuckClaw**: you message it on DingTalk → the on-device agent understands and plans → it calls a tool or writes a reply → it drives the six servos to express emotion and movement → it remembers the exchange.
 
