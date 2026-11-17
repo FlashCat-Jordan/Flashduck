@@ -55,6 +55,42 @@ Flashduck 是基于闪猫1号官方 DIY 套件摄像头版二次开发的机器�
 动作结束后：`head_turn` 会保持转头角度；其余动作（包括 quack/curious/preen 等）回到中立姿态；`sit`/`home` 不额外复位。
 
 
+## 本地鸭叫（已屏蔽 TTS）
+
+机器人照样听你说话（ASR、屏幕字幕都不变），但**不再用人声回答**：服务端下发的 TTS 音频包在
+`Application::OnIncomingAudio` 里被直接丢弃，改由板子自己发声。
+
+| 时机 | 声音 |
+|---|---|
+| 回复开始（`kDeviceStateSpeaking`） | 13 个情绪音里随机一个，不与上一次重复 |
+| 唤醒词 | `duck_curious.ogg` |
+| 新一轮开始听 | `duck_mmh.ogg`（刚说完话自动转回聆听时不响） |
+
+发声时嘴巴和脖子一起动，都不是固定节奏：
+
+- **嘴巴**：18 种「张法」，每一叫随机挑一种且不与上一声重复。有快两下、慢开慢合、先快后慢、
+  先小后大、双峰、颤动、渐强渐弱……单次开合多在 0.2~0.7 秒。长叫声（比如 6.6 秒的
+  devastated）会切成 0.9~1.5 秒一段，每段换一种张法。
+- **脖子**：按服务端下发的情绪（happy/sad/angry/curious/surprised/neutral）决定气质——
+  幅度 6~38°、快慢混用、中间停顿、最后回正；小角度来回转，不会大幅甩头。
+
+张嘴幅度钳在 0~15°（闭合 45° → 最开 60°），脖子相对中位 135° 钳在 ±40°，都不会顶到机械限位。
+
+说话动画是独立动作 `ACTION_SPEAK_GESTURE`，**低优先级**：只动嘴和脖子、不动腿；
+真指令（走路等）入队时会打断它，正在做动作或已有指令排队时则直接跳过这次表演，
+不会出现“先演完嘴才肯走”。
+
+- 资源：`main/assets/common/duck_*.ogg`（13 个，Opus 16kHz 单声道，共约 88KB）。
+  它们由 `EMBED_FILES` 编进 **app**，只烧 app 就能生效，不用动 assets 分区；
+- 参数：`flashduck_voice.cc` 里的时长表、最小间隔（`kListeningMinGapMs`）；
+  张法的具体幅度与节奏在 `flashduck_movements.cc` 的 `BuildGesture()` 里，一个 `case` 一种；
+- 总开关：`FlashduckRobot::HasLocalVoice()` 返回 `true` 即屏蔽 TTS，改成 `false` 就恢复人声；
+- 动作队列忙（正在走路/做动作）或上一段声音还没播完时，这一次干脆不叫，
+  避免出现“只出声、嘴不动”的穿帮。
+
+新增一个叫声：把 `duck_xxx.ogg` 丢进 `main/assets/common/`，再到 `flashduck_voice.cc`
+的 `kSounds` 里加一行（名字、`Lang::Sounds::OGG_DUCK_XXX`、时长毫秒）。
+
 ## 顶部显示与提示音
 
 - 屏幕顶部不再显示时间（HH:MM）和固件版本号；

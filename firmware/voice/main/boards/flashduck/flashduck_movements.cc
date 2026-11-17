@@ -1,7 +1,9 @@
 #include "flashduck_movements.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <math.h>
+#include <vector>
 
 #include "freertos/idf_additions.h"
 #include "oscillator.h"
@@ -796,6 +798,396 @@ void Flashduck::MouthMove(float steps, int period, int amplitude) {
     double phase_diff[SERVO_COUNT] = {0, 0, 0, 0, 0, 0};
 
     Execute(A, O, period, phase_diff, steps);
+}
+
+//---------------------------------------------------------
+//---------------------------------------------------------
+//-- 嘴巴动作: 张嘴语汇（给叫声配音）
+//--  只动 MOUTH，其余舵机保持当前位置（不抬头、不动腿）。
+//
+//  以前是固定 40/50ms 的死循环“张张张张”，像机器在打点。这里改成先攒一串
+//  关键帧再播放：每种 style 是一种“张法”，同一 style 换 seed 还会变幅度和时长。
+//  上限永远是 MOUTH_OPEN_AMOUNT（45°→60°），不会顶到机械限位。
+//---------------------------------------------------------
+namespace {
+
+// 轻量 xorshift：不引 esp_random，保证 (style, seed) 可复现，动作任务里也不抢锁。
+struct MouthRng {
+    uint32_t state;
+
+    explicit MouthRng(uint32_t seed) : state(seed == 0 ? 0x9E3779B9u : seed) {}
+
+    uint32_t Next() {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state;
+    }
+
+    int Range(int lo, int hi) {
+        if (hi <= lo) {
+            return lo;
+        }
+        return lo + static_cast<int>(Next() % static_cast<uint32_t>(hi - lo + 1));
+    }
+};
+
+struct MouthStep {
+    int open;  // 从闭合位张开的度数
+    int ms;    // 走到这个角度用时（余弦缓动，起末速度都为 0）
+};
+
+using MouthSeq = std::vector<MouthStep>;
+
+// 一个完整音节：张开 → 停一下 → 合上
+void PushSyllable(MouthSeq& seq, int open, int open_ms, int hold_ms, int close_ms) {
+    seq.push_back({open, std::max(open_ms, 60)});
+    if (hold_ms > 0) {
+        seq.push_back({open, hold_ms});
+    }
+    seq.push_back({0, std::max(close_ms, 60)});
+}
+
+int SeqMs(const MouthSeq& seq) {
+    int total = 0;
+    for (const auto& step : seq) {
+        total += step.ms;
+    }
+    return total;
+}
+
+// 超时就按比例压缩；慢了不强行拉长——宁可提前闭嘴，也不把“快两下”拉成慢动作。
+// 压到下限（60ms）仍然超长时直接截断：声音已经停了嘴还在动，比少动两下更假。
+void FitSeq(MouthSeq& seq, int budget_ms) {
+    const int total = SeqMs(seq);
+    if (total <= 0 || budget_ms <= 0) {
+        return;
+    }
+    if (total > budget_ms) {
+        const float scale = static_cast<float>(budget_ms) / static_cast<float>(total);
+        for (auto& step : seq) {
+            step.ms = std::max(60, static_cast<int>(static_cast<float>(step.ms) * scale));
+        }
+    }
+
+    if (SeqMs(seq) <= budget_ms) {
+        return;
+    }
+
+    MouthSeq trimmed;
+    int used = 0;
+    for (const auto& step : seq) {
+        if (used + step.ms > budget_ms) {
+            break;
+        }
+        trimmed.push_back(step);
+        used += step.ms;
+    }
+    if (trimmed.empty()) {
+        trimmed.push_back({0, std::max(budget_ms, 60)});
+    } else if (trimmed.back().open != 0) {
+        trimmed.push_back({0, 60});
+    }
+    seq.swap(trimmed);
+}
+
+// 18 种张法。幅度 3~15°，单次开合多在 200~700ms，最快的一档也在 4Hz 左右。
+void BuildGesture(int style, int budget_ms, MouthRng& rng, MouthSeq& seq) {
+    const int b = std::max(budget_ms, 200);
+    switch (style) {
+        case 0:  // 慢开慢合：慢慢张满，停住，再慢慢合
+            PushSyllable(seq, rng.Range(11, 15), b * 35 / 100, b * 15 / 100, b * 45 / 100);
+            break;
+        case 1:  // 轻点两下
+            for (int i = 0; i < 2; ++i) {
+                PushSyllable(seq, rng.Range(6, 10), b * 20 / 100, b * 6 / 100, b * 22 / 100);
+            }
+            break;
+        case 2:  // 先快后慢：短促一下，再慢慢张开一次
+            PushSyllable(seq, rng.Range(8, 12), rng.Range(110, 150), rng.Range(20, 50),
+                         rng.Range(90, 130));
+            PushSyllable(seq, rng.Range(9, 13), rng.Range(320, 420), rng.Range(120, 200),
+                         rng.Range(280, 380));
+            break;
+        case 3:  // 先小后大：先试一点缝，再张大
+            PushSyllable(seq, rng.Range(4, 7), rng.Range(140, 200), rng.Range(40, 80),
+                         rng.Range(120, 180));
+            PushSyllable(seq, rng.Range(12, 15), rng.Range(280, 380), rng.Range(100, 180),
+                         rng.Range(260, 360));
+            break;
+        case 4:  // 先大后小
+            PushSyllable(seq, rng.Range(12, 15), rng.Range(260, 340), rng.Range(80, 150),
+                         rng.Range(240, 320));
+            PushSyllable(seq, rng.Range(5, 8), rng.Range(150, 220), rng.Range(40, 90),
+                         rng.Range(140, 200));
+            break;
+        case 5:  // 急促三连（小幅度）
+            for (int i = 0; i < 3; ++i) {
+                PushSyllable(seq, rng.Range(6, 9), rng.Range(110, 140), rng.Range(20, 40),
+                             rng.Range(100, 130));
+            }
+            break;
+        case 6:  // 一大两小
+            PushSyllable(seq, rng.Range(12, 15), rng.Range(280, 340), rng.Range(100, 160),
+                         rng.Range(240, 300));
+            for (int i = 0; i < 2; ++i) {
+                PushSyllable(seq, rng.Range(5, 8), rng.Range(140, 190), rng.Range(30, 70),
+                             rng.Range(130, 180));
+            }
+            break;
+        case 7:  // 渐强：一次比一次张得大
+            for (int i = 0; i < 3; ++i) {
+                PushSyllable(seq, 5 + i * 4 + rng.Range(0, 2), rng.Range(180, 260),
+                             rng.Range(40, 90), rng.Range(170, 240));
+            }
+            break;
+        case 8:  // 渐弱：先大，再越来越轻
+            for (int i = 0; i < 3; ++i) {
+                PushSyllable(seq, 13 - i * 4 + rng.Range(0, 1), rng.Range(200, 280),
+                             rng.Range(40, 90), rng.Range(190, 260));
+            }
+            break;
+        case 9:  // 长开短合：慢慢张满，突然合上
+            PushSyllable(seq, rng.Range(11, 15), b * 40 / 100, b * 15 / 100, rng.Range(120, 180));
+            break;
+        case 10:  // 短开长合：一下张开，慢慢合拢
+            PushSyllable(seq, rng.Range(11, 15), rng.Range(110, 160), b * 10 / 100,
+                         b * 50 / 100);
+            break;
+        case 11:  // 双峰：张 → 半合 → 再张 → 合（“啊—啊”）
+            seq.push_back({rng.Range(10, 13), rng.Range(180, 240)});
+            seq.push_back({rng.Range(2, 5), rng.Range(100, 140)});
+            seq.push_back({rng.Range(11, 15), rng.Range(160, 220)});
+            seq.push_back({0, rng.Range(260, 340)});
+            break;
+        case 12:  // 颤动：张着的时候轻轻抖
+            seq.push_back({rng.Range(9, 12), rng.Range(220, 300)});
+            for (int i = 0; i < 4; ++i) {
+                seq.push_back({rng.Range(6, 10), rng.Range(100, 140)});
+                seq.push_back({rng.Range(10, 13), rng.Range(100, 140)});
+            }
+            seq.push_back({0, rng.Range(260, 340)});
+            break;
+        case 13:  // 深呼吸式两次
+            for (int i = 0; i < 2; ++i) {
+                PushSyllable(seq, rng.Range(10, 14), b * 18 / 100, b * 8 / 100, b * 22 / 100);
+            }
+            break;
+        case 14:  // 三快一慢
+            for (int i = 0; i < 3; ++i) {
+                PushSyllable(seq, rng.Range(5, 8), rng.Range(110, 140), rng.Range(20, 50),
+                             rng.Range(100, 130));
+            }
+            PushSyllable(seq, rng.Range(11, 14), rng.Range(300, 380), rng.Range(100, 160),
+                         rng.Range(260, 340));
+            break;
+        case 15:  // 随机细碎：一会儿大一会儿小
+            for (int i = 0, n = rng.Range(4, 6); i < n; ++i) {
+                PushSyllable(seq, rng.Range(4, 14), rng.Range(120, 260), rng.Range(20, 90),
+                             rng.Range(110, 240));
+            }
+            break;
+        case 16:  // 停一下再张大：抿一小口，愣一下，然后张满
+            PushSyllable(seq, rng.Range(3, 5), rng.Range(140, 180), rng.Range(40, 80),
+                         rng.Range(120, 160));
+            seq.push_back({0, rng.Range(180, 260)});
+            PushSyllable(seq, rng.Range(12, 15), rng.Range(320, 420), rng.Range(100, 180),
+                         rng.Range(280, 360));
+            break;
+        default:  // 17 轻声咂嘴：多次小小地开合
+            for (int i = 0, n = rng.Range(4, 5); i < n; ++i) {
+                PushSyllable(seq, rng.Range(3, 6), rng.Range(150, 200), rng.Range(30, 60),
+                             rng.Range(140, 190));
+            }
+            break;
+    }
+}
+
+
+// ---- 说话手势：嘴巴轨道 + 脖子轨道，最后按时间轴合并播放 ----
+
+struct MouthKey {
+    int t;    // 绝对时间（ms）
+    int deg;  // 从闭合位张开的度数
+};
+
+struct NeckMove {
+    int t0;
+    int t1;
+    int from;  // 相对中位 135° 的偏移
+    int to;
+};
+
+struct MoodCfg {
+    int amp_lo, amp_hi;      // 摆幅
+    int fast_lo, fast_hi;    // 快档时长
+    int slow_lo, slow_hi;    // 慢档时长
+    int pause_lo, pause_hi;  // 两次转头之间的停顿
+    int moves_lo, moves_hi;  // 转头次数
+};
+
+MoodCfg MoodConfig(int mood) {
+    switch (mood) {
+        case DUCK_MOOD_HAPPY:
+            return {12, 28, 200, 320, 320, 460, 120, 380, 3, 4};
+        case DUCK_MOOD_CURIOUS:
+            return {8, 20, 320, 420, 420, 650, 350, 800, 1, 2};
+        case DUCK_MOOD_ANGRY:
+            return {16, 34, 150, 240, 240, 360, 80, 220, 3, 4};
+        case DUCK_MOOD_SAD:
+            return {6, 14, 420, 520, 520, 850, 300, 800, 1, 2};
+        case DUCK_MOOD_SURPRISED:
+            return {22, 38, 180, 260, 260, 380, 400, 900, 1, 2};
+        case DUCK_MOOD_NEUTRAL:
+        default:
+            return {9, 20, 260, 380, 380, 560, 200, 600, 2, 3};
+    }
+}
+
+// 嘴巴轨道：长叫声切段换张法，段间留一点闭嘴的停顿。
+void BuildMouthTrack(int style, int duration_ms, MouthRng& rng, std::vector<MouthKey>& out) {
+    int t = 0;
+    int chunk = 0;
+    while (t < duration_ms - 180 && chunk < 6) {
+        const int left = duration_ms - t;
+        const int slot = left > 2400 ? rng.Range(900, 1500) : left;
+        const int use_style = chunk == 0 ? style : rng.Range(0, MOUTH_GESTURE_STYLE_COUNT - 1);
+
+        MouthSeq seq;
+        BuildGesture(use_style, slot, rng, seq);
+        FitSeq(seq, slot);
+        for (const auto& step : seq) {
+            out.push_back({t, step.open});
+            t += step.ms;
+        }
+        ++chunk;
+        if (duration_ms - t > 500) {
+            t += rng.Range(90, 180);  // 闭嘴停一下，下面的叫声才分得开
+        }
+    }
+    if (out.empty() || out.back().deg != 0) {
+        out.push_back({t, 0});
+    }
+}
+
+// 脖子轨道：小角度、方向来回、快慢混着来，中间留停顿，最后回正。
+void BuildNeckTrack(int mood, int duration_ms, MouthRng& rng, std::vector<NeckMove>& out) {
+    const MoodCfg cfg = MoodConfig(mood);
+    const int reserve = 320;  // 末尾留给回正
+    int t = rng.Range(0, 120);
+    int pos = 0;
+    int dir = rng.Range(0, 1) == 0 ? -1 : 1;
+    const int moves = rng.Range(cfg.moves_lo, cfg.moves_hi);
+
+    for (int i = 0; i < moves; ++i) {
+        if (i > 0 && rng.Range(0, 3) != 0) {
+            dir = -dir;  // 多数时候来回转，偶尔连着同向
+        }
+        const int amp = rng.Range(cfg.amp_lo, cfg.amp_hi);
+        const int target = std::clamp(dir * amp, -40, 40);
+        const int dur = rng.Range(cfg.fast_lo, cfg.slow_hi);
+        if (t + dur > duration_ms - reserve) {
+            break;
+        }
+        out.push_back({t, t + dur, pos, target});
+        pos = target;
+        t += dur;
+        if (i + 1 < moves) {
+            const int pause = rng.Range(cfg.pause_lo, cfg.pause_hi);
+            if (t + pause < duration_ms - reserve) {
+                t += pause;
+            }
+        }
+    }
+
+    const int back_start = std::min(t, std::max(0, duration_ms - reserve));
+    if (back_start < duration_ms && pos != 0) {
+        out.push_back({back_start, duration_ms, pos, 0});
+    }
+}
+
+}  // namespace
+
+void Flashduck::SpeakGesture(int style, int duration_ms, int mood, uint32_t seed) {
+    if (!has_head_) {
+        return;
+    }
+
+    duration_ms = std::clamp(duration_ms, 300, 8000);
+    style = std::clamp(style, 0, MOUTH_GESTURE_STYLE_COUNT - 1);
+    mood = std::clamp(mood, 0, static_cast<int>(DUCK_MOOD_COUNT) - 1);
+
+    MouthRng rng(seed);
+    int target[SERVO_COUNT];
+    for (int i = 0; i < SERVO_COUNT; ++i) {
+        target[i] = (servo_pins_[i] != -1) ? servo_[i].GetPosition() : 90;
+    }
+
+    std::vector<MouthKey> mouth;
+    std::vector<NeckMove> neck;
+    BuildMouthTrack(style, duration_ms, rng, mouth);
+    BuildNeckTrack(mood, duration_ms, rng, neck);
+
+    // 两条轨道按时间轴合并：每段同时设好嘴和脖子的目标，再交给 MoveServos。
+    std::vector<int> times;
+    times.reserve(mouth.size() + neck.size() * 2 + 2);
+    for (const auto& key : mouth) {
+        if (key.t < duration_ms) {
+            times.push_back(key.t);
+        }
+    }
+    for (const auto& move : neck) {
+        if (move.t0 < duration_ms) {
+            times.push_back(move.t0);
+        }
+        times.push_back(std::min(move.t1, duration_ms));
+    }
+    times.push_back(0);
+    times.push_back(duration_ms);
+    std::sort(times.begin(), times.end());
+    times.erase(std::unique(times.begin(), times.end()), times.end());
+
+    size_t mi = 0;
+    size_t ni = 0;
+    for (size_t i = 0; i + 1 < times.size(); ++i) {
+        const int a = times[i];
+        const int b = times[i + 1];
+        if (b <= a) {
+            continue;
+        }
+
+        while (mi + 1 < mouth.size() && mouth[mi + 1].t <= a) {
+            ++mi;
+        }
+        while (ni + 1 < neck.size() && neck[ni].t1 <= a) {
+            ++ni;
+        }
+
+        const int mdeg = mouth.empty() ? 0 : mouth[mi].deg;
+        int ndeg = 0;
+        if (!neck.empty()) {
+            const NeckMove& move = neck[ni];
+            if (a < move.t0) {
+                ndeg = move.from;
+            } else if (a >= move.t1) {
+                ndeg = move.to;
+            } else {
+                const float k = static_cast<float>(a - move.t0) / (move.t1 - move.t0);
+                ndeg = static_cast<int>(lroundf(move.from + (move.to - move.from) * k));
+            }
+        }
+
+        target[MOUTH] = MOUTH_CLOSED + std::clamp(mdeg, 0, MOUTH_OPEN_AMOUNT);
+        target[NECK] = std::clamp(NECK_CENTER + ndeg, NECK_LEFT_ANGLE, NECK_RIGHT_ANGLE);
+        MoveServos(b - a, target);
+        if (gesture_abort_ || stop_requested_) {
+            break;
+        }
+    }
+
+    // 被指令打断时也要把嘴合上，别张着嘴去走路
+    target[MOUTH] = MOUTH_CLOSED;
+    MoveServos(140, target);
 }
 
 ///////////////////////////////////////////////////////////////////

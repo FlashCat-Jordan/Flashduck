@@ -13,6 +13,7 @@
 #include "backlight.h"
 #include "camera.h"
 #include "assets.h"
+#include "device_state.h"
 
 /**
  * Network events for unified callback
@@ -82,6 +83,13 @@ public:
     virtual void SetPowerSaveLevel(PowerSaveLevel level) = 0;
     virtual std::string GetBoardJson() = 0;
     virtual std::string GetDeviceStatusJson() = 0;
+
+    //-- 可选：板级自带的“本地发声”
+    //   HasLocalVoice() 为 true 时，Application 不再播放服务端下发的 TTS 音频，
+    //   改由板子自己在状态变化/唤醒时发声（Flashduck 用情绪音 + 嘴巴同步）。
+    virtual bool HasLocalVoice() const { return false; }
+    virtual void OnVoiceStateChanged(DeviceState state) { (void)state; }
+    virtual void OnWakeWord(const std::string& wake_word) { (void)wake_word; }
 };
 
 #define DECLARE_BOARD(BOARD_CLASS_NAME) \

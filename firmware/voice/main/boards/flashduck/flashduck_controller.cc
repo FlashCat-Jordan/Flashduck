@@ -41,6 +41,8 @@ private:
         int hip_amp;
         int foot_amp;
         int phase_deg;
+        uint32_t seed;
+        int mood;
     };
 
     enum ActionType {
@@ -78,6 +80,7 @@ private:
         ACTION_STRETCH = 45,
         ACTION_DANCE = 46,
         ACTION_PECK = 47,
+        ACTION_SPEAK_GESTURE = 48,
         ACTION_STOP = 99,
     };
 
@@ -275,6 +278,17 @@ private:
                     }
                     break;
                 }
+                case ACTION_SPEAK_GESTURE: {
+                    if (!self->has_head_) break;
+                    // 有真正的指令在排队时，这段“说话动画”直接让位。
+                    if (uxQueueMessagesWaiting(self->action_queue_) > 0) {
+                        ESP_LOGI(TAG, "有指令排队，跳过说话动画");
+                        break;
+                    }
+                    self->duck_.ClearGestureAbort();
+                    self->duck_.SpeakGesture(params.steps, params.speed, params.mood, params.seed);
+                    break;
+                }
                 case ACTION_STOP:
                     self->duck_.RequestStop();
                     self->duck_.Home(true);
@@ -283,8 +297,9 @@ private:
                     break;
             }
 
-            if (params.action_type != ACTION_SIT && params.action_type != ACTION_HOME &&
-                params.action_type != ACTION_STOP) {
+            // 说话手势自己会收场，不需要走整机 Home（那会把腿脚也拖 1.2 秒）
+            if (params.action_type != ACTION_SPEAK_GESTURE && params.action_type != ACTION_SIT &&
+                params.action_type != ACTION_HOME && params.action_type != ACTION_STOP) {
                 // 转头/张嘴/闭嘴是“保持姿态”的动作，只复位腿脚；
                 // 其余动作结束后完整回到中立姿态。
                 const bool head_reset = !(params.action_type == ACTION_HEAD_TURN ||
@@ -343,16 +358,27 @@ private:
         }
     }
 
-    void QueueAction(int action_type, int steps, int speed, int direction, int amount,
+    // wait: 入队的最长等待。默认无限等待（手动动作、网页按钮）；
+    // 由回调/事件触发的动作必须传 0，否则会把主事件循环卡住。
+    bool QueueAction(int action_type, int steps, int speed, int direction, int amount,
                      int head_swing = 0,
                      int hip_offset = FLASHDUCK_WALK_HIP_OFFSET,
                      int hip_amp = FLASHDUCK_WALK_HIP_AMP,
                      int foot_amp = FLASHDUCK_WALK_FOOT_AMP,
-                     int phase_deg = FLASHDUCK_WALK_PHASE_DEG) {
+                     int phase_deg = FLASHDUCK_WALK_PHASE_DEG,
+                     uint32_t seed = 0, TickType_t wait = portMAX_DELAY,
+                     bool is_command = true) {
+        if (is_command) {
+            // 指令优先：正在做的说话动画在这一帧之后收场，不等它演完。
+            duck_.RequestGestureAbort();
+        }
         ActionParams params = {action_type, steps, speed, direction, amount, head_swing,
-                               hip_offset, hip_amp, foot_amp, phase_deg};
-        xQueueSend(action_queue_, &params, portMAX_DELAY);
+                               hip_offset, hip_amp, foot_amp, phase_deg, seed, 0};
+        if (xQueueSend(action_queue_, &params, wait) != pdTRUE) {
+            return false;
+        }
         StartActionTaskIfNeeded();
+        return true;
     }
 
     FlashduckGaitParams ClampGait(FlashduckGaitParams gait) const {
@@ -458,6 +484,25 @@ public:
     void Stop() {
         duck_.RequestStop();
         QueueAction(ACTION_STOP, 1, 1000, 0, 0);
+    }
+
+    // 离开“说话中”时（被打断/说完）立刻收场，别让嘴和脖子自己演下去。
+    void AbortSpeakGesture() { duck_.RequestGestureAbort(); }
+
+    // 叫声同步的说话手势（嘴 + 脖子）：低优先级，不排队等待，有指令就让位。
+    bool SpeakGesture(int style, int duration_ms, int mood, uint32_t seed) {
+        // 正在走路/做动作，或已有指令在排队：这次不表演，免得声音和嘴对不上。
+        if (is_action_in_progress_ || uxQueueMessagesWaiting(action_queue_) > 0) {
+            return false;
+        }
+        ActionParams params = {ACTION_SPEAK_GESTURE, style, duration_ms, 0, 0, 0,
+                               FLASHDUCK_WALK_HIP_OFFSET, FLASHDUCK_WALK_HIP_AMP,
+                               FLASHDUCK_WALK_FOOT_AMP, FLASHDUCK_WALK_PHASE_DEG, seed, mood};
+        if (xQueueSend(action_queue_, &params, 0) != pdTRUE) {
+            return false;
+        }
+        StartActionTaskIfNeeded();
+        return true;
     }
 
     FlashduckGaitParams GetGaitDefaults() const { return gait_defaults_; }
@@ -679,6 +724,19 @@ void FlashduckStartWalk(int steps, int speed, int direction, int hip_offset, int
         g_flashduck_controller->StartWalk(steps, speed, direction, hip_offset, hip_amp, foot_amp,
                                           phase_deg, head_swing);
     }
+}
+
+void FlashduckAbortSpeakGesture() {
+    if (g_flashduck_controller != nullptr) {
+        g_flashduck_controller->AbortSpeakGesture();
+    }
+}
+
+bool FlashduckSpeakGesture(int style, int duration_ms, int mood, uint32_t seed) {
+    if (g_flashduck_controller == nullptr) {
+        return false;
+    }
+    return g_flashduck_controller->SpeakGesture(style, duration_ms, mood, seed);
 }
 
 void FlashduckStop() {

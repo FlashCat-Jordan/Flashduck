@@ -20,6 +20,8 @@
 #include "mcp_server.h"
 #include "flashduck_display.h"
 #include "flashduck_web_server.h"
+#include "flashduck_controller.h"
+#include "flashduck_voice.h"
 #include "power_manager.h"
 #include "system_reset.h"
 #include "wifi_board.h"
@@ -458,7 +460,31 @@ public:
         }
 
         InitializeFlashduckController();
+        FlashduckVoiceInit();
         GetBacklight()->RestoreBrightness();
+    }
+
+    //-- 本地鸭叫：不播服务端 TTS，改播情绪音 + 嘴巴同步
+    virtual bool HasLocalVoice() const override { return true; }
+
+    virtual void OnVoiceStateChanged(DeviceState state) override {
+        static DeviceState previous = kDeviceStateUnknown;
+        if (state == kDeviceStateSpeaking) {
+            FlashduckVoiceOnSpeaking();
+        } else if (state == kDeviceStateListening && previous != kDeviceStateSpeaking) {
+            // 刚说完话自动转回聆听时不“嗯”，只有真正新开一轮（按键/唤醒后）才应声。
+            FlashduckVoiceOnListening();
+        }
+        if (previous == kDeviceStateSpeaking && state != kDeviceStateSpeaking) {
+            // 说完或被打断：正在演的嘴/脖子立刻停，不要拖到下一轮。
+            FlashduckAbortSpeakGesture();
+        }
+        previous = state;
+    }
+
+    virtual void OnWakeWord(const std::string& wake_word) override {
+        (void)wake_word;
+        FlashduckVoiceOnWakeWord();
     }
 
     virtual AudioCodec* GetAudioCodec() override { return audio_codec_; }

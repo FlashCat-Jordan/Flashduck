@@ -577,7 +577,10 @@ void Application::InitializeProtocol() {
     });
 
     protocol_->OnIncomingAudio([this](std::unique_ptr<AudioStreamPacket> packet) {
-        if (GetDeviceState() == kDeviceStateSpeaking) {
+        // 板子自带发声（Flashduck 的鸭叫）时，服务端 TTS 只用来推进“正在说话”的节拍，
+        // 音频本身直接丢弃，不再从喇叭里放出人声。
+        if (GetDeviceState() == kDeviceStateSpeaking &&
+            !Board::GetInstance().HasLocalVoice()) {
             audio_service_.PushPacketToDecodeQueue(std::move(packet));
         }
     });
@@ -928,6 +931,10 @@ void Application::HandleWakeWordDetectedEvent() {
     auto wake_word = audio_service_.GetLastWakeWord();
     ESP_LOGI(TAG, "Wake word detected: %s (state: %d)", wake_word.c_str(), (int)state);
 
+    if (state != kDeviceStateActivating) {
+        Board::GetInstance().OnWakeWord(wake_word);
+    }
+
     if (state == kDeviceStateIdle) {
         BeginWakeWordInvoke(wake_word);
     } else if (state == kDeviceStateNotifying) {
@@ -1091,6 +1098,9 @@ void Application::HandleStateChangedEvent() {
             // Do nothing
             break;
     }
+
+    // 板级发声（可选）：Speaking / Listening 等状态下是否出声由板子自己决定。
+    board.OnVoiceStateChanged(new_state);
 }
 
 void Application::ShowStartupWakeWordHint() {

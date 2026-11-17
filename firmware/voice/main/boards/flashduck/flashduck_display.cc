@@ -1,5 +1,7 @@
 #include "flashduck_display.h"
 
+#include "flashduck_voice.h"
+
 #include <esp_log.h>
 #include <esp_random.h>
 
@@ -279,8 +281,8 @@ void FlashduckDisplay::SetChatMessage(const char* role, const char* content) {
 }
 
 bool FlashduckDisplay::SetEmotion(const char* emotion) {
-    // 表情由眼睛自身的自然运动表达，忽略上层传入的 GIF 表情名。
-    (void)emotion;
+    // 眼睛不用 GIF 表情，但这一轮的情绪要记下来：它决定回话时脖子怎么转。
+    FlashduckVoiceOnEmotion(emotion);
     return true;
 }
 

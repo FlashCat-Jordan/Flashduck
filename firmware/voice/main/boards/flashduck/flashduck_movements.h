@@ -8,6 +8,7 @@
 #include "freertos/task.h"
 #include "oscillator.h"
 #include <atomic>
+#include <cstdint>
 
 //-- Constants
 #define FORWARD 1
@@ -61,6 +62,19 @@
 #define MOUTH_MAX_ANGLE 60
 // 嘴巴振荡半摆幅上限：中心=开合中点(52°)时，摆幅≤7 才保证不出 [45,60] 限位
 #define MOUTH_MAX_SWING ((MOUTH_MAX_ANGLE - MOUTH_MIN_ANGLE) / 2)
+// 张嘴语汇的风格数量（SpeakGesture 的 style 取值范围）
+#define MOUTH_GESTURE_STYLE_COUNT 18
+
+// 说话手势的情绪：只影响脖子怎么转（幅度/速度/停顿），不影响嘴巴张法。
+enum DuckMood {
+    DUCK_MOOD_NEUTRAL = 0,
+    DUCK_MOOD_HAPPY,
+    DUCK_MOOD_CURIOUS,
+    DUCK_MOOD_ANGRY,
+    DUCK_MOOD_SAD,
+    DUCK_MOOD_SURPRISED,
+    DUCK_MOOD_COUNT,
+};
 
 class Flashduck {
 public:
@@ -134,6 +148,17 @@ public:
     void MouthOpen(int period = 600);   // 张嘴
     void MouthClose(int period = 600);  // 闭嘴
     void MouthMove(float steps = 6, int period = 400, int amplitude = 15);  // 开合振荡（咀嚼/说话）
+    // -- 说话手势：嘴巴 + 脖子一起动，给叫声“配音”。
+    //    嘴巴：18 种张法（快两下 / 慢开 / 先快后慢 / 先小后大 / 颤动 / 渐强……），
+    //    脖子：按情绪选幅度、方向、速度，小角度 + 变速 + 停顿，最后回正。
+    //    style 选张法，mood 决定脖子气质，seed 决定这一次的细节抖动。
+    //    嘴巴幅度钳在 0..MOUTH_OPEN_AMOUNT，脖子相对中位 135° 钳在 ±40°。
+    void SpeakGesture(int style, int duration_ms, int mood, uint32_t seed = 1);
+
+    // -- 说话手势可被指令打断：指令入队时置位，手势在每个分镜之间检查并提前收场。
+    void RequestGestureAbort() { gesture_abort_ = true; }
+    void ClearGestureAbort() { gesture_abort_ = false; }
+    bool IsGestureAbortRequested() const { return gesture_abort_; }
 
     // -- 组合表情动作
     void Talk(float steps = 8, int period = 350, int amplitude = 12);   // 说话
@@ -162,6 +187,7 @@ public:
 
 private:
     std::atomic<bool> stop_requested_{false};
+    std::atomic<bool> gesture_abort_{false};
     Oscillator servo_[SERVO_COUNT];
 
     int servo_pins_[SERVO_COUNT];
